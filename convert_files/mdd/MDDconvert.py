@@ -119,7 +119,7 @@ def main():
         count_exclude_merge = 0
         snps_to_exclude = []
         # put the SNPs on the SNPsToExcludeMerge.list in a list
-        new_line, snps_exclude_merge = get_excluded_snps_merge(DataExcludeMerge)
+        snps_exclude_merge = get_excluded_snps_merge(DataExcludeMerge)
 
         for line in DataBim:
             # remove the _rs number in SNP id name and write new bim file

@@ -94,12 +94,9 @@ def update_alleles(line, correct_alleles, count_wrong_allele):
     :return: row with indel alleles changed to 'fictional' alleles and with corrected alleles
     """
     # change allele I to A and D to G
-    if re.search("(I|D)", line[4]) or re.search("(I|D)", line[5]):  # line[4] and [5] are allele1 and 2
-        line[4] = re.sub("[\t(I)\t]", "A", line[4])
-        line[5] = re.sub("[\t(I)\t]", "A", line[5])
-        line[4] = re.sub("[\t(D)\t]", "G", line[4])
-        line[5] = re.sub("[\t(D)\t]", "G", line[5])
-
+    flip = str.maketrans("ID", "AG")
+    line[4] = line[4].translate(flip)
+    line[5] = line[5].translate(flip)
     # for snps that call wrong alleles, change these alleles
     if line[1] in correct_alleles.keys():  # line[1] is SNP id
         if line[4] not in correct_alleles[line[1]][:2] and line[4] != '0':

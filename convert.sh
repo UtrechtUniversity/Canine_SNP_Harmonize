@@ -582,7 +582,7 @@ if [ "$platform" = 'wisdom' ]; then
   python3 -c "import importlib.util; exit(0 if importlib.util.find_spec('pandas') else 1)"
   if [ $? -eq 1 ]; then
     echo "ERROR: required package 'pandas' is not installed" 2>&1 | tee -a "$log_file"
-    echo "Use 'sudo pip3 install pandas' in terminal" 2>&1 | tee -a "$log_file"
+    echo "Use 'sudo pip3 install pandas' in terminal, or 'sudo apt update' and 'sudo apt install python3-pandas'" 2>&1 | tee -a "$log_file"
     exit 1
   fi
 
@@ -854,6 +854,7 @@ if [ "$platform" = 'vcf3' ]; then
     {
     # use tabix to filter vcf file for the correct snps
     echo -e "\nUsing tabix to filter vcf file for the correct snps:"
+
     if [ $t_option -ne 1 ]; then
       start=$(date +%s)
       echo -e "\tIndexing the VCF file"
@@ -864,7 +865,7 @@ if [ "$platform" = 'vcf3' ]; then
 
     echo -e "\tFiltering locations from the vcf file"
     start=$(date +%s)
-    tabix -h -R convert_files/VCF3/VCFFilterFileCF3_big.txt "$file_vcf" > "${file_new}_filtered_locations.vcf"
+    tabix -h -R convert_files/VCF3/VCFFilterFileCF3.txt "$file_vcf" > "${file_new}_filtered_locations.vcf"
     end=$(date +%s)
     echo -e "\tExecution time: $((end-start)) seconds ($(((end-start)/60)) minutes)"
     } 2>&1 | tee -a "$log_file" # put output in log file
@@ -873,33 +874,38 @@ if [ "$platform" = 'vcf3' ]; then
     file_filtered_locations="$file_vcf"
   fi
 
-  # use plink to make a BED BIM FAM format from the vcf file
-  echo -e "\nUsing plink to make .bed .bim .fam files from vcf file:" 2>&1 | tee -a "$log_file"
+  echo -e "\nUsing plink to order SNPs and make plink files from vcf file" 2>&1 | tee -a "$log_file"
 
-  convert_files/common_scripts/plink  \
+  convert_files/common_scripts/plink2  \
   --vcf "$file_filtered_locations"  \
-  --make-bed  \
+  --make-pgen \
+  --sort-vars \
   --chr-set 38  \
+  --output-chr 26 \
+  --silent \
   --const-fid 0 \
+  --lax-chrx-import \
   --out "convert_files/temp_files/${file_new}_temp"
   ## --const-fid 0 \ can be added here if there is an error about IDs containing more than 1 _ (underscore)
 
   cat "convert_files/temp_files/${file_new}_temp.log" >> "$log_file"
   {
   # execute python script
-  echo -e "\nUsing python script VCF3Convert.py to create a .bim file in the uniform format:"
-  python3 convert_files/VCF3/VCF3Convert.py "convert_files/temp_files/${file_new}_temp.bim" "convert_files/temp_files/${file_new}_temp2"
+  echo -e "\nUsing python script VCF3Convert.py to create a .pvar file in the uniform format"
+  python3 convert_files/VCF3/VCF3Convert.py "convert_files/temp_files/${file_new}_temp.pvar" "convert_files/temp_files/${file_new}_temp2"
 
   # execute plink command
-  echo -e "\nUsing plink to extract SNPs:"
+  echo -e "\nUsing plink to extract SNPs"
   } 2>&1 | tee -a "$log_file" # put output in log file
-  convert_files/common_scripts/plink  \
-  --bim "convert_files/temp_files/${file_new}_temp2.bim"  \
-  --fam "convert_files/temp_files/${file_new}_temp.fam"  \
-  --bed "convert_files/temp_files/${file_new}_temp.bed"  \
+  convert_files/common_scripts/plink2  \
+  --pgen "convert_files/temp_files/${file_new}_temp.pgen"  \
+  --psam "convert_files/temp_files/${file_new}_temp.psam"  \
+  --pvar "convert_files/temp_files/${file_new}_temp2.pvar"  \
   --make-bed  \
   --extract "convert_files/temp_files/${file_new}_temp2_extract.list"  \
   --chr-set 38  \
+  --output-chr 26 \
+  --silent \
   --out "$file_new"
 
   # add plink log to log file
@@ -929,16 +935,16 @@ if [ "$platform" = 'vcf4' ]; then
     echo -e "\nUsing tabix to filter vcf file for the correct snps:"
 
     if [ $t_option -ne 1 ]; then
-      echo -e "\tIndexing the VCF file"
       start=$(date +%s)
+      echo -e "\tIndexing the VCF file"
       tabix -p vcf "$file_vcf"
       end=$(date +%s)
       echo -e "\tExecution time: $((end-start)) seconds ($(((end-start)/60)) minutes)"
     fi
 
-    start=$(date +%s)
     echo -e "\tFiltering locations from the vcf file"
-    tabix -h -R convert_files/VCF4/VCFFilterFileCF4_big.txt "$file_vcf" > "${file_new}_filtered_locations.vcf"
+    start=$(date +%s)
+    tabix -h -R convert_files/VCF4/VCFFilterFileCF4.txt "$file_vcf" > "${file_new}_filtered_locations.vcf"
     end=$(date +%s)
     echo -e "\tExecution time: $((end-start)) seconds ($(((end-start)/60)) minutes)"
     } 2>&1 | tee -a "$log_file" # put output in log file
@@ -946,31 +952,55 @@ if [ "$platform" = 'vcf4' ]; then
   else
     file_filtered_locations="$file_vcf"
   fi
-  # use plink to make a BED BIM FAM format from the vcf file
-  echo -e "\nUsing plink to make .bed .bim .fam files from vcf file:"
 
-  convert_files/common_scripts/plink  \
+  echo -e "\nUsing plink to order SNPs and make plink files from vcf file" 2>&1 | tee -a "$log_file"
+
+  convert_files/common_scripts/plink2  \
   --vcf "$file_filtered_locations"  \
-  --make-bed  \
+  --make-pgen \
+  --sort-vars \
   --chr-set 38  \
+  --output-chr 26 \
+  --silent \
+  --const-fid 0 \
+  --lax-chrx-import \
   --out "convert_files/temp_files/${file_new}_temp"
+  ## --const-fid 0 \ can be added here if there is an error about IDs containing more than 1 _ (underscore)
 
   cat "convert_files/temp_files/${file_new}_temp.log" >> "$log_file"
   {
   # execute python script
-  echo -e "\nUsing python script VCF4Convert.py to create a .bim file in the uniform format:"
-  python3 convert_files/VCF4/VCF4Convert.py "convert_files/temp_files/${file_new}_temp.bim" "convert_files/temp_files/${file_new}_temp2"
+  echo -e "\nUsing python script VCF4Convert.py to create a .pvar file in the uniform format:"
+  python3 convert_files/VCF4/VCF4Convert.py "convert_files/temp_files/${file_new}_temp.pvar" "convert_files/temp_files/${file_new}_temp2"
+
+  echo -e "\nUsing plink to order SNPs" 2>&1 | tee -a "$log_file"
+
+  convert_files/common_scripts/plink2  \
+  --pgen "convert_files/temp_files/${file_new}_temp.pgen"  \
+  --psam "convert_files/temp_files/${file_new}_temp.psam"  \
+  --pvar "convert_files/temp_files/${file_new}_temp2.pvar"  \
+  --make-pgen \
+  --sort-vars \
+  --chr-set 38  \
+  --output-chr 26 \
+  --silent \
+  --const-fid 0 \
+  --lax-chrx-import \
+  --out "convert_files/temp_files/${file_new}_temp3"
+  ## --const-fid 0 \ can be added here if there is an error about IDs containing more than 1 _ (underscore)
 
   # execute plink command
-  echo -e "\nUsing plink to extract SNPs:"
+  echo -e "\nUsing plink to extract SNPs"
   } 2>&1 | tee -a "$log_file" # put output in log file
-  convert_files/common_scripts/plink  \
-  --bim "convert_files/temp_files/${file_new}_temp2.bim"  \
-  --fam "convert_files/temp_files/${file_new}_temp.fam"  \
-  --bed "convert_files/temp_files/${file_new}_temp.bed"  \
+  convert_files/common_scripts/plink2  \
+  --pgen "convert_files/temp_files/${file_new}_temp3.pgen"  \
+  --psam "convert_files/temp_files/${file_new}_temp3.psam"  \
+  --pvar "convert_files/temp_files/${file_new}_temp3.pvar"  \
   --make-bed  \
   --extract "convert_files/temp_files/${file_new}_temp2_extract.list"  \
   --chr-set 38  \
+  --output-chr 26 \
+  --silent \
   --out "$file_new"
 
   # add plink log to log file
@@ -983,22 +1013,21 @@ if [ "$platform" = 'vcf4' ]; then
   perl convert_files/common_scripts/convert_bim_allele.pl  \
   --intype dbsnp  \
   --outtype top  \
-  --outfile "convert_files/temp_files/${file_new}_temp3.bim"  \
+  --outfile "convert_files/temp_files/${file_new}_temp4.bim"  \
   "$file_new.bim"  \
-  convert_files/common_files/SNP_Table_Big.txt
+  convert_files/VCF4/SNP_Table_CF4.txt
 
   rm "$file_new.bim"
-  mv "convert_files/temp_files/${file_new}_temp3.bim" "$file_new.bim"
+  mv "convert_files/temp_files/${file_new}_temp4.bim" "$file_new.bim"
   } 2>&1 | tee -a "$log_file" # put output in log file
 fi
 
 
-
-## Remove temporary files and, if present, the .nosex file produced by plink
-#rm convert_files/temp_files/"${file_new}"_temp*
-#if [ -f "${file_new}.nosex" ]; then
-#  rm "${file_new}".nosex
-#fi
+# Remove temporary files and, if present, the .nosex file produced by plink
+rm convert_files/temp_files/"${file_new}"_temp*
+if [ -f "${file_new}.nosex" ]; then
+  rm "${file_new}".nosex
+fi
 
 # Printing data summary: number of samples and number of snps
 echo -e "\nOutput files contain:"

@@ -1,15 +1,17 @@
 """
 This script:
 Creates a new bim file with these changes:
-    adds SNP id for known snps, based on base pair position
-    SNPs on chromosome 39 are divided over 39 and 41 (pseudo-autosomal)
+    adds SNP id for known snps, which are also present on other platforms to align SNP names
+    SNP locations are updated when they are incorrect or missing
     flipped strands when needed
     changes alleles of indel IDs to fictional alleles A (insertion) and G (deletion)
-    changes locations from canfam 4 to 3
 Creates a file with SNPs to extract
     only snps:
         bi-allelic
         that are SNPs and not indels, except for the known indels
+Removes SNPs:
+    with wrong alleles
+    without location available
 """
 import csv
 import time
@@ -28,29 +30,31 @@ def split_and_strip(line, delimiter='\t'):
     return split_line
 
 
-def get_snp_name_and_update_chromosome(line, snp_info, count_false_indel, count_snp_id_not_found, count_indel_shown_as_snp):
+def get_snp_name_and_update_location(line, snp_info, count_false_indel, count_snp_id_not_found, count_indel_shown_as_snp, count_loc_updated):
     """
     :param line: input row of bim file
-    :param snp_info: dictionary with snp information in format ('location:chromosome': 'SNP id')
+    :param snp_info: dictionary with snp information in format (dict[snp_id] = [new_snp_id, chromosome, bp_location])
     :param count_false_indel: counter for how many false indels were found
     :param count_snp_id_not_found: counter for how many snps there is no snp_info available
     :param count_indel_shown_as_snp: counter for how many snps falsely call for indel
-    :return: row with updated chromosome (chr 39 divided over 39 and 41 = pseudo-autosomal), added SNP id when location
+    :param count_loc_updated: counter for how many snps location was updated
+    :return: row with updated chromosome (chr 39 divided over 39 and 41 = pseudo-autosomal), added new SNP id when location
     and chromosome combination match with a SNP in snp_info dictionary, and updated alleles for indel snps (insertion
     becomes A, deletion becomes G). Changed SNP_id to '.' when non-indel SNPs code for indels, and when a * is present
     in the alleles (‘*’ indicates that the allele is missing due to a upstream deletion).
     """
-    # divide chr 39 over 39 and 41 (pseudo-autosomal)
-    if line[0] == '39' or line[0] == '41':  # line[0] is the chromosome
-        if int(line[3]) < 6640000:  # line[3] is basepair position of SNP on chromosome
-            line[0] = '41'
-        else:
-            line[0] = '39'
     line[1] = line[1].upper()
-    snp = line[0] + ':' + line[3] + ':' + line[1]
+    snp = line[1]
     # if chromosome-location combination is in the snp_info dictionary, get corresponding SNP id from dictionary
     if snp in snp_info.keys():
-        line[1] = snp_info[snp]
+        # update location
+        if line[0] != snp_info[snp][1] or line[3] != snp_info[snp][2]:
+            count_loc_updated += 1
+            line[0] = snp_info[snp][1] # update chromosome
+            line[3] = snp_info[snp][2] # update base pair location
+
+        # update SNP-ID
+        line[1] = snp_info[snp][0]
         # if snp was found, delete this one from dictionary, so no duplicate SNPs end up in bim file
         # (second snp of duplicate gets '.' for snp id).
         del snp_info[snp]
@@ -58,38 +62,44 @@ def get_snp_name_and_update_chromosome(line, snp_info, count_false_indel, count_
         if line[1].endswith('INDEL'):
             first = line[4]
             second = line[5]
-            # check if indel snps is coding for an indel, if not, it is an incorrect snp
-            if len(first) == 1 and len(second) == 1:
+            if first in ['A', 'C', 'G', 'T'] and second in ['A', 'C', 'G', 'T']:
                 line[1] = '.'
                 count_indel_shown_as_snp += 1
+            # check if indel snps is coding for an indel, if not, it is an incorrect snp
+            elif first == '-':
+                line[4] = 'G'
+                line[5] = 'A'
+            elif second == '-':
+                line[4] = 'A'
+                line[5] = 'G'
             # check if insertion or deletion (insertion is more alleles compared to deletion)
-            if len(first) > len(second):
+            elif len(first) > len(second):
                 line[4] = 'A'
                 line[5] = 'G'
             else:
                 line[4] = 'G'
                 line[5] = 'A'
-        # change SNP id to '.' when SNP codes for a indel, but is not known as indel snp, and when SNP has a * allele
-        if len(line[4]) > 1 or len(line[5]) > 1 or line[4] == '*' or line[5] == '*':
+        # change SNP id to '.' when SNP codes for a indel, but is not known as indel snp, and when SNP has a * or - allele
+        if len(line[4]) > 1 or len(line[5]) > 1 or line[4] == '*' or line[5] == '*' or line[4] == '-' or line[5] == '-':
             line[1] = '.'
             count_false_indel += 1
-    else:  # if location was not found, SNP gets ID .
+    else:  # if snp was not found, SNP gets ID .
         line[1] = '.'
         count_snp_id_not_found += 1
-    return line, count_false_indel, count_snp_id_not_found, count_indel_shown_as_snp
+    return line, count_false_indel, count_snp_id_not_found, count_indel_shown_as_snp, count_loc_updated
 
 
 def get_snp_info(file):
     """
     :param file: input bim file with correct forward alleles and what SNP-Name to use (if applicable, use SNP-name as in Embark or Illumina)
-    :return: snp dictionary with format ('location:chromosome': 'SNP id') and alleles dictionary with format
+    :return: snp dictionary with format (dict[snp_id] = [new_snp_id, chromosome, bp_location]) and alleles dictionary with format
     (SNPid: [allele1, allele2])
     """
     snp_info = {}
     forward_alleles = {}
     for line in file:
         line = split_and_strip(line)
-        snp_info[line[0] + ':' + line[3] + ':' + line[1]] = line[2] # dict[chrom:position:original_name] = updated_snp_name
+        snp_info[line[1]] = [line[2], line[0], line[3]]  # dict[snp_id] = [new_snp_id, chromosome, bp_location]
         forward_alleles[line[2]] = [line[4], line[5]] # dict[updated_snp_name] = allele1, allele2
     return snp_info, forward_alleles
 
@@ -104,6 +114,8 @@ def update_alleles(line, forward_alleles, count_flip, count_tri_allelic):
     (tri-)allelic alleles (they do not match with alleles in forward_alleles dictionary)), the number count for flipped
     strands and tri-allelic/wrong alleles.
     """
+    if line[5] == 'N':
+        line[5] = '0'
     if line[1] != '.' and line[1] in forward_alleles.keys():  # line[1] is SNP id
         # get correct forward alleles for this SNP
         correct_alleles = forward_alleles[line[1]] + ['0']
@@ -111,22 +123,9 @@ def update_alleles(line, forward_alleles, count_flip, count_tri_allelic):
         # if alleles in bim file are not the same as correct forward alleles, flip strand
         # line[4] and [5] are ACTG alleles
         if line[4] not in correct_alleles or line[5] not in correct_alleles:
-            if line[4] == 'A':
-                line[4] = 'T'
-            elif line[4] == 'T':
-                line[4] = 'A'
-            elif line[4] == 'C':
-                line[4] = 'G'
-            elif line[4] == 'G':
-                line[4] = 'C'
-            if line[5] == 'A':
-                line[5] = 'T'
-            elif line[5] == 'T':
-                line[5] = 'A'
-            elif line[5] == 'C':
-                line[5] = 'G'
-            elif line[5] == 'G':
-                line[5] = 'C'
+            flip = str.maketrans("ATCG", "TAGC")
+            line[4] = line[4].translate(flip)
+            line[5] = line[5].translate(flip)
             # check if alleles are now correct after flipping strand
             if line[4] in correct_alleles and line[5] in correct_alleles:
                 count_flip += 1
@@ -179,13 +178,13 @@ def main():
         snp_info, forward_alleles = get_snp_info(DataSNPs)
 
         count_flip, count_tri_allelic, count_removed, count_kept, \
-            count_false_indel, count_snp_id_not_found, count_indel_shown_as_snp = 0, 0, 0, 0, 0, 0, 0
+            count_false_indel, count_snp_id_not_found, count_indel_shown_as_snp, count_loc_updated = 0, 0, 0, 0, 0, 0, 0, 0
 
         snps_to_extract = []
         for line in DataBIM:
             line = split_and_strip(line)
             # add SNP id to known SNPs and divide chromosome 39 over 39 and 41 (pseudo-autosomal)
-            line, count_false_indel, count_snp_id_not_found, count_indel_shown_as_snp = get_snp_name_and_update_chromosome(line, snp_info, count_false_indel, count_snp_id_not_found, count_indel_shown_as_snp)
+            line, count_false_indel, count_snp_id_not_found, count_indel_shown_as_snp, count_loc_updated = get_snp_name_and_update_location(line, snp_info, count_false_indel, count_snp_id_not_found, count_indel_shown_as_snp, count_loc_updated)
             # update alleles, flip strand when necessary
             line, count_flip, count_tri_allelic = update_alleles(line, forward_alleles, count_flip, count_tri_allelic)
             snps_to_extract, count_kept, count_removed = get_snps_to_extract(line, snps_to_extract,
@@ -195,6 +194,7 @@ def main():
         for line in snps_to_extract:
             writer_extract.writerow([line])
 
+        print('Number of snps for which location was updated:', count_loc_updated)
         print('Number of strand flips:', count_flip)
         print('Number of tri allelic snps:', count_tri_allelic)
         print('Number of snps incorrectly shown as indels:', count_false_indel)

@@ -269,7 +269,6 @@ For each platform, the actions performed by the command line utility are explain
 4. The generated ExcludedSNPs list is used in plink --exclude to remove SNPs
 
 ## Neogen 220K
-
 **Summary raw data:**
 - SNP array of 220853 SNPs
 - Type of allele calling: TOP, forward and A/B
@@ -332,7 +331,6 @@ For each platform, the actions performed by the command line utility are explain
 
 
 ## Lupa 170K
-
 **Summary raw data:**
 - SNP array of 174376 SNPs
 - Type of allele calling: Forward
@@ -373,7 +371,6 @@ For each platform, the actions performed by the command line utility are explain
 
 
 ## MyDogDNA (mdd)
-
 **Summary raw data:**
 - SNP array of 15654 SNPs
 - Type of allele calling: illumina 1/2
@@ -465,8 +462,8 @@ MDD does not give information about their location)
 - Filter file
   - To filter the snps with known SNP ids out of the VCF file
   - Has chromosome's coded as for example 1 and chr1, so both formats can be filtered
-- Bim file with SNP alleles in forward to check if SNPs need te be flipped or are wrong
-- SNP table for perl script
+- SNPs_forward_alleles.txt in common_files directory. File with SNPs, their locations and forward alleles.
+- SNP table for perl script to change forward to TOP snp calling
 
 **Steps performed by the command line utility for getting the right format for VCF in canfam 3:**
 First 2 steps are skipped if option -l was used and input file is a vcf file with already filtered locations 
@@ -475,8 +472,7 @@ First 2 steps are skipped if option -l was used and input file is a vcf file wit
    - tabix -p vcf filename.vcf.gz
 2. Filter vcf file for known SNPs using tabix
    - tabix -h -R VCFFilterFile.txt filename.vcf.gz > newfilename.vcf
-3. Make BED BIM FAM format from VCF in plink
-   - plink --vcf filename.vcf --chr-set 38 --make-bed --out newfilename
+3. Make plink format from VCF in plink and sort SNPs on location
 4. VCF3convert.py script
    - Creates a new bim file with these changes: 
      - adds SNP id for known snps, based on base pair position 
@@ -491,8 +487,7 @@ First 2 steps are skipped if option -l was used and input file is a vcf file wit
 6. Perl script convert_bim_allele.pl to convert forward allele calling to TOP calling
     - uses SNP_Table_Big.txt
     - convert_bim_allele.pl --intype dbsnp --outtype top --outfile new_bim_file input_bim_file SNP_Table_Big.txt
-7. The log of the python, plink and perl scripts is put in a new log file.
-8. The temporary files are removed
+
 
 ## VCF canfam 4
 **Summary raw data:**
@@ -504,10 +499,8 @@ First 2 steps are skipped if option -l was used and input file is a vcf file wit
 - Filter file
   - To filter the snps with known SNP ids out of the VCF file
   - Has chromosome's coded as for example 1 and chr1, so both formats can be filtered
-- Bim file with SNP alleles in forward to check if SNPs need te be flipped or are wrong
-  - this file is based on forward alleles in build canfam 3. The forward alleles in build canfam 4 are sometimes different, hence the number of flips becomes higher.
-- SNPs_CF3_CF4.txt with SNPs and their locations in canfam 3 and 4
-- SNP table for perl script
+- File with SNPs with their IDs and locations in CF3 and CF4, and their forward alleles in CF4
+- SNP table for perl script to change forward to TOP snp calling
 
 **Steps performed by the command line utility for getting the right format for VCF in canfam 4:**
 First 2 steps are skipped if option -l was used and input file is a vcf file with already filtered locations 
@@ -516,14 +509,12 @@ First 2 steps are skipped if option -l was used and input file is a vcf file wit
    - tabix -p vcf filename.vcf.gz
 2. Filter vcf file for known SNPs using tabix
    - tabix -h -R VCFFilterFile.txt filename.vcf.gz > newfilename.vcf
-3. Make BED BIM FAM format from VCF in plink
-   - plink --vcf filename.vcf --chr-set 38 --make-bed --out newfilename
+3. Make plink format from VCF in plink and sort SNPs on location
 4. VCF4convert.py script
    - Creates a new bim file with these changes: 
      - adds SNP id for known snps, based on base pair position 
      - SNPs on chromosome 39 are divided over 39 and 41 (pseudo-autosomal)
      - flippes strands when needed 
-     - changes locations from canfam 4 to 3
      - changes alleles of indel IDs to fictional alleles A (insertion) and G (deletion)
    - Creates a file with SNPs to extract
      - SNPs with a SNP id
@@ -533,39 +524,41 @@ First 2 steps are skipped if option -l was used and input file is a vcf file wit
 6. Perl script convert_bim_allele.pl to convert forward allele calling to TOP calling
     - uses SNP_Table_Big.txt
     - convert_bim_allele.pl --intype dbsnp --outtype top --outfile new_bim_file input_bim_file SNP_Table_Big.txt
-7. The log of the python, plink and perl scripts is put in a new log file.
-8. The temporary files are removed
 
 
 ## Affymetrix
 **Summary raw data:**
-- SNP array of 913936 SNPs
+- Multiple SNP arrays
 - Type of allele calling: forward
-- Contains data of X (chr 39), X-pseudo autosomal (chr 41, in raw array still 39) and  mitochondrial (chr 42)
+- Contains data (depending on array) of X (chr 39), X-pseudo autosomal (chr 41, in raw array still 39) and  mitochondrial (chr 42) and Y SNPs
 - CanFam 3.1
 
 **Files:**
-- Bim file with SNP alleles in forward to check if SNPs need te be flipped or are wrong
+- Affy_forward.txt
+  - File with SNP alleles in forward and SNP ids that are on other platforms for the same SNPs
+  - To check if SNPs need te be flipped or are wrong, or are tri-allelic
+  - To update locations of SNPs that are missing or wrong
   - this file is based on forward alleles in build canfam 3.
 - SNP table for perl script
 
 **Steps performed by the command line utility for getting the right format for affymetrix:**
 1. AffymetrixConvert.py script
    - Creates a new bim file with these changes: 
-     - adds SNP id for known snps, based on base pair position 
+     - adds SNP id for known snps ids present on other platforms, based on base pair position 
      - SNPs on chromosome 39 are divided over 39 and 41 (pseudo-autosomal)
-     - flippes strands when needed
+     - flips strands when needed
      - changes alleles of indel IDs to fictional alleles A (insertion) and G (deletion)
+     - updated locations of SNPs with missing or wrong location
    - Creates a file with SNPs to extract
      - SNPs with a SNP id
      - bi-allelic SNPs
      - SNPs that are SNPs and not indels, except for the known indels
-2. The generated Affymetrix_extract list is used in plink --extract to extract SNPs
-3. Perl script convert_bim_allele.pl to convert forward allele calling to TOP calling
+2. Order the SNPs on chromosome+location with plink --sort-vars to prevent errors in plink2
+3. Adding missing alleles info to variants file, with script AffymetrixUpdate_pvar.py
+4. The generated Affymetrix_extract list is used in plink --extract to extract SNPs
+5. Perl script convert_bim_allele.pl to convert forward allele calling to TOP calling
     - uses SNP_Table_Big.txt
     - convert_bim_allele.pl --intype dbsnp --outtype top --outfile new_bim_file input_bim_file SNP_Table_Big.txt
-4. The log of the python, plink and perl scripts is put in a new log file.
-5. The temporary files are removed
 
 ## Credits
 This project is part of the [Expertise Centre for Veterinary Genetics](https://www.uu.nl/en/research/expertise-centre-for-veterinary-genetics), Faculty of Veterinary Medicine, Utrecht University

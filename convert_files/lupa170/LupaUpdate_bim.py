@@ -43,16 +43,31 @@ def update_alleles(line, alleles, count_flip):
         if line[4] == '.' and line[5] == '.':
             line[4] = alleles[line[1]][0]
             line[5] = alleles[line[1]][1]
-        elif line[4] == '.':
+        elif line[4] == '.' and line[5] in alleles[line[1]]:
             if line[5] == alleles[line[1]][0]:
                 line[4] = alleles[line[1]][1]
             elif line[5] == alleles[line[1]][1]:
                 line[4] = alleles[line[1]][0]
-        elif line[5] == '.':
+        elif line[5] == '.' and line[4] in alleles[line[1]]:
             if line[4] == alleles[line[1]][0]:
                 line[5] = alleles[line[1]][1]
             elif line[4] == alleles[line[1]][1]:
                 line[5] = alleles[line[1]][0]
+        elif line[4] == '.' and line[5] not in alleles[line[1]]:
+            count_flip += 1
+            if line[5] == 'A':
+                line[5] = 'T'
+            elif line[5] == 'T':
+                line[5] = 'A'
+            elif line[5] == 'G':
+                line[5] = 'C'
+            elif line[5] == 'C':
+                line[5] = 'G'
+            if line[5] in alleles[line[1]]:
+                if line[5] == alleles[line[1]][0]:
+                    line[4] = alleles[line[1]][1]
+                elif line[5] == alleles[line[1]][1]:
+                    line[4] = alleles[line[1]][0]
         elif line[4] not in alleles[line[1]] and line[5] not in alleles[line[1]]: # flip alleles because they are not in forward
             count_flip += 1
             if line[4] == 'A':
@@ -71,6 +86,7 @@ def update_alleles(line, alleles, count_flip):
                 line[5] = 'C'
             elif line[5] == 'C':
                 line[5] = 'G'
+
     return line, count_flip
 
 

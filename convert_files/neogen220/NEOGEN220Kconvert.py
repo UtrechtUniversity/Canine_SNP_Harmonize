@@ -205,18 +205,9 @@ def add_allele(line, alleles, correct_alleles, count_wrong_allele):
     :return: list with alleles for this sample. In each iteration, new alleles are added to this list.
     """
     # update missing and indel alleles, line[4] and [5] are allele 1 and 2
-    if line[4] == '-':
-        line[4] = '0'
-    if line[5] == '-':
-        line[5] = '0'
-    if line[4] == 'I':
-        line[4] = 'A'
-    if line[4] == 'D':
-        line[4] = 'G'
-    if line[5] == 'I':
-        line[5] = 'A'
-    if line[5] == 'D':
-        line[5] = 'G'
+    flip = str.maketrans("-ID", "0AG")
+    line[4] = line[4].translate(flip)
+    line[5] = line[5].translate(flip)
     # for snps that call wrong alleles, change these alleles
     if line[0] in correct_alleles.keys():  # line[0] is SNP id
         if line[4] not in correct_alleles[line[0]][:2] and line[4] != '0':
