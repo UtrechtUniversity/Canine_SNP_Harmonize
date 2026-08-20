@@ -9,6 +9,7 @@ creates a new bim file with these changes:
         if this is not true, add _VHL behind the snp ID
     Changes chromosome coding:
         for SNPs in the pseudo autosomal region, change chromosome 39 to 41
+    Changes indel I/D alleles to respectively A and G
 """
 
 import csv
@@ -77,44 +78,57 @@ def update_chromosome(line):
     return line
 
 
-def check_alleles(line, snp_ids_alleles, count_wrong_allele, snps_to_exclude):
+def check_alleles_and_loc(line, snp_ids_alleles, count_wrong_allele, snps_to_exclude, count_locations_changed):
     """
     :param line: row of input bim file
     :param snp_ids_alleles: dictionary with snps and new ID and their correct alleles, which have to be updated in the raw bim file
     :param count_wrong_allele: counter for how many wrong alleles were updated
     :param snps_to_exclude: set of SNP IDs that have to be excluded
-    :return: row with corrected alleles, updated snps_to_exclude set with SNPs with wrong alleles
+    :param count_locations_changed: counter for how many locations were changed
+    :return: row with corrected alleles and location, updated snps_to_exclude set with SNPs with wrong alleles
     """
+    # change allele I to A and D to G
+    flip = str.maketrans("ID", "AG")
+    line[4] = line[4].translate(flip)
+    line[5] = line[5].translate(flip)
     # check if alleles are correct, using dictionary with correct alleles per snp
     # for snps that call wrong alleles, add those to the list with snps to exclude
     if line[1] in snp_ids_alleles.keys():  # line[1] is SNP id
-        if line[4] not in snp_ids_alleles[line[1]][1:] and line[4] != '0': # line[4] is allele1
+        # check location
+        if line[0] != snp_ids_alleles[line[1]][1] or line[3] != snp_ids_alleles[line[1]][2]:
+            line[0] = snp_ids_alleles[line[1]][1] # update chromosome
+            line[3] = snp_ids_alleles[line[1]][2] # update location
+            count_locations_changed += 1
+
+        # check alleles
+        if line[4] not in snp_ids_alleles[line[1]][3:] and line[4] != '0': # line[4] is allele1
             if line[1] not in snps_to_exclude:
                 snps_to_exclude.add(line[1])
                 count_wrong_allele += 1
-        if line[5] not in snp_ids_alleles[line[1]][1:] and line[5] != '0': # line[5] is allele2
+        if line[5] not in snp_ids_alleles[line[1]][3:] and line[5] != '0': # line[5] is allele2
             if line[1] not in snps_to_exclude:
                 snps_to_exclude.add(line[1])
                 count_wrong_allele += 1
+
         # if allele = 0 (not known, because it is missing in all animals), update this allele to the known allele for this SNP
         elif line[4] == '0' and line[5] == '0':
-            line[4] = snp_ids_alleles[line[1]][1]
-            line[5] = snp_ids_alleles[line[1]][2]
+            line[4] = snp_ids_alleles[line[1]][3]
+            line[5] = snp_ids_alleles[line[1]][4]
         elif line[4] == '0':
-            if line[5] == snp_ids_alleles[line[1]][1]:
-                line[4] = snp_ids_alleles[line[1]][2]
-            elif line[5] == snp_ids_alleles[line[1]][2]:
-                line[4] = snp_ids_alleles[line[1]][1]
+            if line[5] == snp_ids_alleles[line[1]][3]:
+                line[4] = snp_ids_alleles[line[1]][4]
+            elif line[5] == snp_ids_alleles[line[1]][4]:
+                line[4] = snp_ids_alleles[line[1]][3]
         elif line[5] == '0':
-            if line[4] == snp_ids_alleles[line[1]][1]:
-                line[5] = snp_ids_alleles[line[1]][2]
-            elif line[4] == snp_ids_alleles[line[1]][2]:
-                line[5] = snp_ids_alleles[line[1]][1]
+            if line[4] == snp_ids_alleles[line[1]][3]:
+                line[5] = snp_ids_alleles[line[1]][4]
+            elif line[4] == snp_ids_alleles[line[1]][4]:
+                line[5] = snp_ids_alleles[line[1]][3]
     else:
         if line[1] not in snps_to_exclude and line[0] != '0' and line[3] != '0':
             snps_to_exclude.add(line[1])
             count_wrong_allele += 1
-    return line, count_wrong_allele, snps_to_exclude
+    return line, count_wrong_allele, snps_to_exclude, count_locations_changed
 
 
 def get_id_and_correct_alleles(file):
@@ -125,7 +139,7 @@ def get_id_and_correct_alleles(file):
     snp_ids_alleles = {}
     for line in file:
         line = split_and_strip(line)
-        snp_ids_alleles[line[2]] = [line[3], line[4], line[5]] # vhl_id = [new_id, allele1, allele2]
+        snp_ids_alleles[line[2]] = [line[3], line[0], line[1], line[4], line[5]] # vhl_id = [new_id, chromosome, location, allele1, allele2]
     return snp_ids_alleles
 
 def change_id(line, snp_ids_alleles, count_id_changed, dup_snps_remove):
@@ -222,8 +236,8 @@ def main():
             snps_to_exclude, count_no_correct_location = get_snps_without_location(line, snps_to_exclude, snps_to_exclude_merge, count_no_correct_location)
             # change chromosome coding: 39 to 39 or 41 (pseudo-autosomal)
             line = update_chromosome(line)
-            # check for wrong alleles
-            line, count_wrong_allele, snps_to_exclude = check_alleles(line, snp_ids_alleles, count_wrong_allele, snps_to_exclude)
+            # check for wrong alleles and location
+            line, count_wrong_allele, snps_to_exclude, count_locations_changed = check_alleles_and_loc(line, snp_ids_alleles, count_wrong_allele, snps_to_exclude, count_locations_changed)
             # Change SNP id for VHL SNPs that have different name in other platform arrays
             line, count_id_changed = change_id(line, snp_ids_alleles, count_id_changed, dup_snps_remove)
             # Write adjusted row to new bim file
