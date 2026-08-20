@@ -56,6 +56,8 @@ def update_snp(line, snp_info, count_flip, count_tri_allelic, count_snp_id_not_f
     if line[0].startswith('chr'):
         line[0] = re.sub("chr", '', line[0])
 
+    if line[0] == '39' or line[0] == '41': # rename chrom 39 and 41 to X
+        line[0] = 'X'
     location = line[0] + '_' + line[1]
     if location in snp_info:
         alleles = [snp_info[location][3], snp_info[location][4]]
