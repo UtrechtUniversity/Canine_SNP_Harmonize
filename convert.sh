@@ -679,7 +679,7 @@ if [ "$platform" = 'mdd' ]; then
   {
   # execute python script
   echo -e "\nAdapting .bim and .fam files"
-  python3 convert_files/mdd/MDDConvert.py "$file_bim" "$file_fam" "$file_exclude" "convert_files/temp_files/${file_new}_temp"
+  python3 convert_files/mdd/MDDconvert.py "$file_bim" "$file_fam" "$file_exclude" "convert_files/temp_files/${file_new}_temp"
 
   echo -e "\nUsing plink to order SNPs on location"
   } 2>&1 | tee -a "$log_file" # put output in log file
@@ -756,7 +756,7 @@ if [ "$platform" = 'lupa170' ]; then
   {
   # execute python script
   echo -e "\nAdapting .bim file"
-  python3 convert_files/lupa170/LUPA174KConvert.py "$file_bim" "$file_exclude" "convert_files/temp_files/${file_new}_temp"
+  python3 convert_files/lupa170/LUPA174Kconvert.py "$file_bim" "$file_exclude" "convert_files/temp_files/${file_new}_temp"
 
   echo -e "\nUsing plink to order SNPs on location"
   } 2>&1 | tee -a "$log_file" # put output in log file
@@ -891,8 +891,8 @@ if [ "$platform" = 'vcf3' ]; then
   cat "convert_files/temp_files/${file_new}_temp.log" >> "$log_file"
   {
   # execute python script
-  echo -e "\nUsing python script VCF3Convert.py to create a .pvar file in the uniform format"
-  python3 convert_files/VCF3/VCF3Convert.py "convert_files/temp_files/${file_new}_temp.pvar" "convert_files/temp_files/${file_new}_temp2"
+  echo -e "\nUsing python script VCF3convert.py to create a .pvar file in the uniform format"
+  python3 convert_files/VCF3/VCF3convert.py "convert_files/temp_files/${file_new}_temp.pvar" "convert_files/temp_files/${file_new}_temp2"
 
   # execute plink command
   echo -e "\nUsing plink to extract SNPs"
@@ -970,8 +970,8 @@ if [ "$platform" = 'vcf4' ]; then
   cat "convert_files/temp_files/${file_new}_temp.log" >> "$log_file"
   {
   # execute python script
-  echo -e "\nUsing python script VCF4Convert.py to create a .pvar file in the uniform format:"
-  python3 convert_files/VCF4/VCF4Convert.py "convert_files/temp_files/${file_new}_temp.pvar" "convert_files/temp_files/${file_new}_temp2"
+  echo -e "\nUsing python script VCF4convert.py to create a .pvar file in the uniform format:"
+  python3 convert_files/VCF4/VCF4convert.py "convert_files/temp_files/${file_new}_temp.pvar" "convert_files/temp_files/${file_new}_temp2"
 
   echo -e "\nUsing plink to order SNPs" 2>&1 | tee -a "$log_file"
 
