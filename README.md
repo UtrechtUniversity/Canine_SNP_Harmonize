@@ -4,7 +4,7 @@
     </a>
 </p>
 
-<h1 align="center">Pipeline for harmonizing SNP data</h1>
+<h1 align="center">Pipeline for harmonizing canine SNP data</h1>
 
 -----------------------------------------------------------------------------
 This project is part of the [Expertise Centre for Veterinary Genetics](https://www.uu.nl/en/research/expertise-centre-for-veterinary-genetics), Faculty of Veterinary Medicine, Utrecht University
@@ -224,6 +224,8 @@ For each platform, the actions performed by the command line utility are explain
    - Creates a new BIM file with these changes:
      - Change SNP id if SNP also has different ID in other arrays
      - Changes chromosome 39 to 39 or 41 if pseudo-autosomal (if location < 6640000 bp)
+   - Creates a new FAM file with these changes:
+     - The PLINK FID (family ID) is changed to the same id as the IID (individual ID)
 3. Order the SNPs on chromosome+location with plink --sort-vars to prevent errors in plink2
 4. The generated ExcludedSNPs list is used in plink --exclude to remove SNPs
 

@@ -335,14 +335,15 @@ if [ "$platform" = 'vhl' ]; then
 
   {
   # execute python script
-  echo -e "\nUsing python script VHLconvert.py to create a .bim file in the uniform format"
-  python3 convert_files/vhl/VHLconvert.py "$file_bim" "convert_files/temp_files/${file_new}_temp.vmiss" "$file_exclude" "convert_files/temp_files/${file_new}_temp2.bim"
+  echo -e "\nUsing python script VHLconvert.py to create a .bim and .fam file in the uniform format"
+  python3 convert_files/vhl/VHLconvert.py "$file_bim" "$file_fam" "convert_files/temp_files/${file_new}_temp.vmiss" \
+  "$file_exclude" "convert_files/temp_files/${file_new}_temp2.bim" "convert_files/temp_files/${file_new}_temp2.fam"
 
   echo -e "\nUsing plink to order SNPs on location"
   } 2>&1 | tee -a "$log_file" # put output in log file
   convert_files/common_scripts/plink2  \
   --bim "convert_files/temp_files/${file_new}_temp2.bim"  \
-  --fam "$file_fam"  \
+  --fam "convert_files/temp_files/${file_new}_temp2.fam"  \
   --bed "$file_bed"  \
   --make-pgen \
   --sort-vars \

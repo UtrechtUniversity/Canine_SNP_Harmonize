@@ -10,6 +10,8 @@ creates a new bim file with these changes:
     Changes chromosome coding:
         for SNPs in the pseudo autosomal region, change chromosome 39 to 41
     Changes indel I/D alleles to respectively A and G
+creates a new fam file with these changes:
+    The PLINK FID (family ID) is changed to the same id as the IID (individual ID)
 """
 
 import csv
@@ -188,6 +190,15 @@ def get_dup_snps(file1, snps_to_exclude):
             snps_to_exclude.add(snp+'_DUP')
     return snps_to_exclude, count_duplicates, dup_snps_remove
 
+def update_fam(file_fam, writer):
+    """
+    :param file_fam: plink .fam file
+    :param writer: writer for new .fam file
+    """
+    for line in file_fam:
+        line = line.split()
+        line[0] = line[1] # make family ID the same as individual ID
+        writer.writerow(line)
 
 def main():
     """ Creates a new BIM file,
@@ -195,28 +206,36 @@ def main():
     """
     # input files
     filename_bim = sys.argv[1]  # input plink .bim file
+    filename_fam = sys.argv[2]  # input plink .fam file
     snps_to_exclude_merge = 'convert_files/common_files/SNPsToExcludeMerge.list'  # File with SNPids to exclude when merging files
     snp_info = 'convert_files/vhl/VHL_snp_info.txt' # File with correct alleles and SNP ids from other arrays
-    missingness_per_snp = sys.argv[2]
+    missingness_per_snp = sys.argv[3]
 
     # Output files
-    new_filename_bim = sys.argv[4]
-    vhl_snps_to_exclude = sys.argv[3]  # File with SNPnames to use in --exclude plink
+    vhl_snps_to_exclude = sys.argv[4]  # File with SNPnames to use in --exclude plink
+    new_filename_bim = sys.argv[5]
+    new_filename_fam = sys.argv[6]
 
     with open(filename_bim, mode="r") as DataBIM, \
+            open(filename_fam, mode="r") as DataFAM, \
             open(snps_to_exclude_merge, mode="r") as DataExcludeMerge, \
             open(snp_info, mode="r") as snp_info, \
             open(new_filename_bim, "w", newline='') as NewFileBIM, \
+            open(new_filename_fam, "w", newline='') as NewFileFAM, \
             open(vhl_snps_to_exclude, "w", newline='') as NewFileExcludedSNPs, \
             open(missingness_per_snp, mode="r") as Missingness_snp:
         writer_exclude = csv.writer(NewFileExcludedSNPs, delimiter='\t')
         writer_bim = csv.writer(NewFileBIM, delimiter='\t')
+        writer_fam = csv.writer(NewFileFAM, delimiter='\t')
 
         snps_to_exclude = set()
         count_no_correct_location = 0
         count_locations_changed = 0
         count_wrong_allele = 0
         count_id_changed = 0
+
+        # update .fam file, make FID the same as IID
+        update_fam(DataFAM, writer_fam)
 
         # Get set of duplicate snps to remove
         snps_to_exclude, count_duplicates, dup_snps_remove = get_dup_snps(Missingness_snp, snps_to_exclude)
